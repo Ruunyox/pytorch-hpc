@@ -1,0 +1,53 @@
+seed_everything: null
+trainer:
+    logger: true
+optimizer:
+    class_path: torch.optim.optimizers.Adam
+    init_args:
+        lr: 0.001
+model:
+    class_path: pytorch_benchmarks.models.FullyConnectedClassifier
+    init_args:
+        tag: fc_class_test
+        in_dim: 784
+        out_dim: 10
+        hidden_dim:
+            - 128
+            - 64
+            - 32
+        activation: torch.nn.modules.activation.ReLU
+        class_activation: torch.nn.modules.activation.Softmax
+    loss_function:
+        class_path: torch.nn.CrossEntropyLoss
+        init_args:
+            reduction: mean
+data:
+    class_path: pytorch_test_suite.pl.pl_data.TorchvisionDataModule
+    init_args:
+        dataset_name: "FashionMNIST"
+        root_dir: "."
+        splits:
+            train_idx:
+                class_path: numpy.arange
+                init_args:
+                    start: 0
+                    stop: 4800
+                    step: 1
+             val_idx:
+                class_path: numpy.arange
+                init_args:
+                    start: 4800
+                    stop: 6000
+                    step: 1 
+        train_dataloader_opts:
+            batch_size: 512
+            shuffle: True
+        val_dataloader_opts:
+            batch_size: 512
+            shuffle: False
+        test_dataloader_opts:
+            batch_size: 512
+            shuffle: False
+        transform:
+            - torchvision.transforms.ToTensor
+        target_transform: null
