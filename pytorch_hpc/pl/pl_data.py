@@ -29,17 +29,16 @@ class TorchvisionDataModule(pl.LightningDataModule):
         String specifying the name of the torchvision dataset to use/download
     root_dir:
         String specifying where the data should be downloaded to
-    splits:
-        Dictionary of train/val splits of the form
+    splits_fn:
+        .npz filename containtin a dictionary of train/val splits of the form
 
             {"train_idx": np.ndarray, "val_idx": np.ndarray}
 
+        If None, a default train/validation split will be set as the first 4/5th /
+        last 1/5th of the original train dataset.
     val_size:
         float between 0.0 and 1.0 determing the size of the validation
         percentage take from the full, original training set
-    shuffle_split:
-        Bool telling whether or not the full training data shoudl be
-        shuffled before splitting into the final train/validation sets
     train_dataloader_opts:
         Dict of kawrgs for train DataLoader
     val_dataloader_opts:
@@ -57,12 +56,10 @@ class TorchvisionDataModule(pl.LightningDataModule):
         self,
         dataset_name: str,
         root_dir: str = ".",
-        splits: Optional[Dict] = None,
-        shuffle_split: bool = True,
-        val_size: float = 0.2,
-        train_dataloader_opts: Dict = None,
-        val_dataloader_opts: Dict = None,
-        test_dataloader_opts: Dict = None,
+        splits_fn: Optional[str] = None,
+        train_dataloader_opts: Optional[Dict] = None,
+        val_dataloader_opts: Optional[Dict] = None,
+        test_dataloader_opts: Optional[Dict] = None,
         transform: Optional[List[str]] = None,
         target_transform: Optional[List[str]] = None,
     ):
@@ -77,19 +74,20 @@ class TorchvisionDataModule(pl.LightningDataModule):
                 sys.modules["torchvision.datasets"], dataset_name
             )
         self.root_dir = root_dir
-        if splits is not None:
-            if val_size is not None:
-                warnings.warn(
-                    "splits have been explicitly specified. Therefore, the additionally specified val_ratio of {val_ratio} will be overriden by the ratio implied by the splits"
-                )
-            assert all(k in splits for k in ["train_idx", "val_idx"])
-            self.val_size = (len(splits["val_idx"])) / (
-                len(splits["train_idx"]) + len(splits["val_idx"])
-            )
+
+        full_train_len = len(
+            self.dataset_class(self.root_dir, train=True, download=False)
+        )
+
+        if splits_fn is not None:
+            self.splits = np.load(splits_fn)
         else:
-            self.val_size = val_size
-        self.splits = splits
-        self.shuffle_split = True
+            self.splits = {
+                "train_idx": np.arange(0, int(full_train_len * 4.0 / 5.0)),
+                "val_idx": np.arange(
+                    int(full_train_len * 4.0 / 5.0), full_train_len
+                ),
+            }
 
         if train_dataloader_opts is None:
             self.train_dataloader_opts = {}
@@ -121,56 +119,59 @@ class TorchvisionDataModule(pl.LightningDataModule):
             else None
         )
 
-        print(self.splits)
+    def _get_dataset(
+        self, train: bool = True, return_dataset: bool = True, download: bool = True
+    ) -> Optional[torch.utils.data.Dataset]:
+        """Helper method to download and optionally return
+        dataset objects.
+        """
 
-    def prepare_data(self):
-        """Download the (full) train and test datasets"""
-
-        self.dataset_train = self.dataset_class(
+        dataset = self.dataset_class(
             self.root_dir,
-            train=True,
-            download=True,
+            train=train,
+            download=download,
             transform=self.transform,
             target_transform=self.target_transform,
         )
-        self.dataset_test = self.dataset_class(
-            self.root_dir,
-            train=False,
+
+        if return_dataset is True:
+            return dataset
+
+    def prepare_data(self):
+        """Download the (full) train and test datasets.
+        For DDP, we don't want to assign/store variables here.
+        This method is only called by the Trainer on the first
+        rank in order to prevent multiple calls on each process.
+        """
+
+        self._get_dataset(
+            train=True,
+            return_dataset=False,
             download=True,
-            transform=self.transform,
-            target_transform=self.target_transform,
+        )
+        self._get_dataset(
+            train=False,
+            return_dataset=False,
+            download=True,
         )
 
     def setup(self, stage: Optional[str] = None):
-        """Setup the dataset, applying train/val/test splits"""
+        """Setup the dataset, applying train/val/test splits. Keep in mind that under a DDP strategy,
+        train/validation splitting should NOT be done here - unless `seed_everything` is not None, then
+        leakage between the training and validation sets can occur as the different processes may have
+        different runtime seeds.
+        """
 
         if stage in ["fit", "validate"] or stage is None:
-            if self.splits is None:
-                full_train_idx = np.arange(len(self.dataset_train))
-                train_idx, val_idx = train_test_split(
-                    full_train_idx, test_size=self.val_size, shuffle=self.shuffle_split
-                )
-                self.splits = {}
-                self.splits["train_idx"] = train_idx
-                self.splits["val_idx"] = val_idx
-
-            self.dataset_val = Subset(self.dataset_train, self.splits["val_idx"])
-            self.dataset_train = Subset(
-                self.dataset_train, self.splits["train_idx"]
-            )  # re-assign the train dataset after shaving off some validation data
-            print(len(self.dataset_train))
-            # print(self.dataset_train.transform)
-            print(len(self.dataset_val))
-            # print(self.dataset_val.transform)
+            dataset_train = self._get_dataset(
+                train=True, return_dataset=True, download=False
+            )
+            self.dataset_val = Subset(dataset_train, self.splits["val_idx"])
+            self.dataset_train = Subset(dataset_train, self.splits["train_idx"])
         if stage == "test":
-            if self.dataset_test is None:
-                self.dataset_test = self.dataset_class(
-                    self.root_dir,
-                    train=False,
-                    download=True,
-                    transform=self.transform,
-                    target_transform=self.target_transform,
-                )
+            self.dataset_test = self._get_dataset(
+                train=False, return_dataset=True, download=False
+            )
 
     def train_dataloader(self) -> torch.utils.data.DataLoader:
         return DataLoader(self.dataset_train, **self.train_dataloader_opts)
