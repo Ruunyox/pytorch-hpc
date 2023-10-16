@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 from typing import Optional, List
+from copy import deepcopy
+
+__all__ = ["FullyConnectedClassifier", "ConvolutionClassifier"]
 
 
 class FullyConnectedClassifier(nn.Module):
@@ -11,9 +14,9 @@ class FullyConnectedClassifier(nn.Module):
         tag: str,
         in_dim: int,
         out_dim: int,
+        activation: torch.nn.Module,
+        class_activation: torch.nn.Module,
         hidden_layers: Optional[List[int]] = None,
-        activation: torch.nn.modules.activation = torch.nn.modules.activation.ReLU,
-        class_activation: torch.nn.modules.activation = torch.nn.modules.activation.Softmax,
     ):
         super(FullyConnectedClassifier, self).__init__()
 
@@ -24,18 +27,19 @@ class FullyConnectedClassifier(nn.Module):
         layers = []
         layers.append(nn.Linear(in_dim, hidden_layers[0]))
         if len(hidden_layers) > 1:
-            layers.append(activation())
+            layers.append(deepcopy(activation))
             for i in range(1, len(hidden_layers)):
                 layers.append(nn.Linear(hidden_layers[i - 1], hidden_layers[i]))
-                layers.append(activation())
+                layers.append(deepcopy(activation))
             layers.append(nn.Linear(hidden_layers[-1], out_dim))
-        layers.append(class_activation())
+        layers.append(deepcopy(class_activation))
 
         self.net = nn.Sequential(*layers)
 
-    def forward(x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through network"""
-
+        pixel_size = x.size()[-1]
+        x = x.view(-1, pixel_size * pixel_size)
         for layer in self.net:
             x = layer(x)
 
@@ -55,8 +59,8 @@ class ConvolutionClassifier(nn.Module):
         hidden_layers: Optional[List[int]] = None,
         conv_channels: Optional[List[int]] = None,
         conv_kernels: Optional[List[int]] = None,
-        activation: torch.nn.modules.activation = torch.nn.modules.activation.ReLU,
-        class_activation: torch.nn.modules.activation = torch.nn.modules.activation.Softmax,
+        activation: type[torch.nn.Module] = torch.nn.ReLU,
+        class_activation: type[torch.nn.Module] = torch.nn.Softmax,
     ):
         super(ConvolutionClassifier, self).__init__()
 

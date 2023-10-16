@@ -1,16 +1,20 @@
 import sys
+import builtins
 import numpy as np
 import lightning.pytorch as pl
 import torch
 from lightning.pytorch.cli import OptimizerCallable, LRSchedulerCallable
 import torchvision.datasets
-from typing import Tuple, Optional, Dict, List
+from typing import Tuple, Optional, Dict, List, Any
 from torchvision.datasets import *
 from torchvision.transforms import Compose
 from torch.utils.data import Subset, DataLoader
 from sklearn.model_selection import train_test_split
+import warnings
 
-tv_datasets = torchvision.datasets.__all__
+__all__ = ["TorchvisionDataModule"]
+
+transform_map = {"ToTensor": torchvision.transforms.ToTensor}
 
 
 class TorchvisionDataModule(pl.LightningDataModule):
@@ -42,11 +46,11 @@ class TorchvisionDataModule(pl.LightningDataModule):
         Dict of kawrgs for validation DataLoader
     test_dataloader_opts:
         Dict of kawrgs for test DataLoader
-    transforms
-        Optional list of torchvision.transforms.Transforms that are applied
+    transform
+        Optional list of torchvision.transform.Transforms that are applied
         to the raw dataset. Eg, for image datasets stored in PIL format:
 
-            transforms = [torchvision.transforms.ToTensor()]
+            transform = [torchvision.transform.ToTensor()]
     """
 
     def __init__(
@@ -59,11 +63,11 @@ class TorchvisionDataModule(pl.LightningDataModule):
         train_dataloader_opts: Dict = None,
         val_dataloader_opts: Dict = None,
         test_dataloader_opts: Dict = None,
-        transforms: Optional[List[torch.nn.Module]] = None,
-        target_transforms: Optional[List[torch.nn.Module]] = None,
+        transform: Optional[List[str]] = None,
+        target_transform: Optional[List[str]] = None,
     ):
         super().__init__()
-        if dataset_name not in tv_datasets:
+        if dataset_name not in torchvision.datasets.__all__:
             raise ValueError(
                 f"dataset {dataset_name} not in torchvision datasets. Must be one of {tv_datasets}."
             )
@@ -89,24 +93,35 @@ class TorchvisionDataModule(pl.LightningDataModule):
 
         if train_dataloader_opts is None:
             self.train_dataloader_opts = {}
+        else:
+            self.train_dataloader_opts = train_dataloader_opts
+
         if val_dataloader_opts is None:
             self.val_dataloader_opts = {}
+        else:
+            self.val_dataloader_opts = val_dataloader_opts
+
         if test_dataloader_opts is None:
             self.test_dataloader_opts = {}
+        else:
+            self.test_dataloader_opts = test_dataloader_opts
 
         self.dataset_train = None
         self.dataset_val = None
         self.dataset_test = None
 
-        if transforms is not None:
-            self.transforms = Compose(transforms)
-        else:
-            self.transforms = None
+        self.transform = (
+            Compose([transform_map[t]() for t in transform])
+            if transform is not None
+            else None
+        )
+        self.target_transform = (
+            Compose([transform_map[t]() for t in transform])
+            if target_transform is not None
+            else None
+        )
 
-        if target_transforms is not None:
-            self.target_transforms = Compose(target_transforms)
-        else:
-            self.target_transforms = None
+        print(self.splits)
 
     def prepare_data(self):
         """Download the (full) train and test datasets"""
@@ -115,25 +130,25 @@ class TorchvisionDataModule(pl.LightningDataModule):
             self.root_dir,
             train=True,
             download=True,
-            transform=self.transforms,
-            target_transform=self.target_transforms,
+            transform=self.transform,
+            target_transform=self.target_transform,
         )
         self.dataset_test = self.dataset_class(
             self.root_dir,
             train=False,
             download=True,
-            transform=self.transforms,
-            target_transform=self.target_transforms,
+            transform=self.transform,
+            target_transform=self.target_transform,
         )
 
     def setup(self, stage: Optional[str] = None):
         """Setup the dataset, applying train/val/test splits"""
 
-        if stage == "fit" or stage is None:
+        if stage in ["fit", "validate"] or stage is None:
             if self.splits is None:
                 full_train_idx = np.arange(len(self.dataset_train))
                 train_idx, val_idx = train_test_split(
-                    full_train_idx, test_size=0.2, shuffle=self.shuffle_split
+                    full_train_idx, test_size=self.val_size, shuffle=self.shuffle_split
                 )
                 self.splits = {}
                 self.splits["train_idx"] = train_idx
@@ -143,14 +158,18 @@ class TorchvisionDataModule(pl.LightningDataModule):
             self.dataset_train = Subset(
                 self.dataset_train, self.splits["train_idx"]
             )  # re-assign the train dataset after shaving off some validation data
+            print(len(self.dataset_train))
+            # print(self.dataset_train.transform)
+            print(len(self.dataset_val))
+            # print(self.dataset_val.transform)
         if stage == "test":
             if self.dataset_test is None:
                 self.dataset_test = self.dataset_class(
                     self.root_dir,
                     train=False,
                     download=True,
-                    transform=self.transforms,
-                    target_transform=self.target_transforms,
+                    transform=self.transform,
+                    target_transform=self.target_transform,
                 )
 
     def train_dataloader(self) -> torch.utils.data.DataLoader:

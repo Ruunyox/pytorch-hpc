@@ -1,53 +1,81 @@
-seed_everything: null
-trainer:
-    logger: true
-optimizer:
-    class_path: torch.optim.optimizers.Adam
-    init_args:
-        lr: 0.001
-model:
-    class_path: pytorch_benchmarks.models.FullyConnectedClassifier
-    init_args:
-        tag: fc_class_test
-        in_dim: 784
-        out_dim: 10
-        hidden_dim:
-            - 128
-            - 64
-            - 32
-        activation: torch.nn.modules.activation.ReLU
-        class_activation: torch.nn.modules.activation.Softmax
-    loss_function:
-        class_path: torch.nn.CrossEntropyLoss
+fit:
+    seed_everything: null
+    trainer:
+        default_root_dir: &/scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist
+        max_epochs: 100
+        max_time: null             
+        profiler: null   
+        accelerator: 'cpu'
+        precision: 32                                                  
+        logger:                                                         
+          - class_path: lightning.pytorch.loggers.TensorBoardLogger      
+            init_args:                                                    
+                save_dir: *default_root_dir                                   
+                name: tensorboard                                             
+                version: ''                                                    
+        benchmark: false                                                      
+        enable_checkpointing: true                                             
+        callbacks:                                                              
+          - class_path: lightning.pytorch.callbacks.LearningRateMonitor          
+            init_args:                                                            
+                logging_interval: epoch                                              
+                log_momentum: false                                                   
+          - class_path: lightning.pytorch.callbacks.ModelCheckpoint 
+            init_args:                                
+                dirpath: *default_root_dir                
+                monitor: validation_loss                  
+                save_top_k: -1                             
+                every_n_epochs: 1                           
+                filename: '{epoch}-{validation_loss:.4f}'    
+                save_last: true      
+        log_every_n_steps: 1      
+        gradient_clip_val: 0         
+        gradient_clip_algorithm: norm 
+        check_val_every_n_epoch: 1
+        fast_dev_run: false 
+        accumulate_grad_batches: 1 
+        enable_model_summary: false  
+        deterministic: false
+        num_sanity_val_steps: -1
+    optimizer:
+        class_path: torch.optim.Adam
         init_args:
-            reduction: mean
-data:
-    class_path: pytorch_test_suite.pl.pl_data.TorchvisionDataModule
-    init_args:
-        dataset_name: "FashionMNIST"
-        root_dir: "."
-        splits:
-            train_idx:
-                class_path: numpy.arange
+            lr: 0.0001
+    lr_scheduler: null
+    model:
+        class_path: pytorch_hpc.pl.pl_model.LightningModel
+        init_args:
+            model:
+                class_path: pytorch_hpc.nn.models.FullyConnectedClassifier
                 init_args:
-                    start: 0
-                    stop: 4800
-                    step: 1
-             val_idx:
-                class_path: numpy.arange
+                    tag: fc_class_test
+                    in_dim: 784
+                    out_dim: 10
+                    activation:
+                        class_path: torch.nn.Tanh
+                    class_activation:
+                        class_path: torch.nn.Softmax
+                    hidden_layers: [128, 64, 32]
+            loss_function:
+                class_path: torch.nn.CrossEntropyLoss
                 init_args:
-                    start: 4800
-                    stop: 6000
-                    step: 1 
-        train_dataloader_opts:
-            batch_size: 512
-            shuffle: True
-        val_dataloader_opts:
-            batch_size: 512
-            shuffle: False
-        test_dataloader_opts:
-            batch_size: 512
-            shuffle: False
-        transform:
-            - torchvision.transforms.ToTensor
-        target_transform: null
+                    reduction: mean
+    data:
+        class_path: pytorch_hpc.pl.pl_data.TorchvisionDataModule
+        init_args:
+            dataset_name: "FashionMNIST"
+            root_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist/data
+            val_size: 0.2
+            train_dataloader_opts:
+                batch_size: 512
+                shuffle: True
+                num_workers: 192
+            val_dataloader_opts:
+                batch_size: 512
+                shuffle: False
+                num_workers: 192
+            test_dataloader_opts:
+                batch_size: 512
+                shuffle: False
+            transform:
+                - ToTensor
