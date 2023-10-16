@@ -36,9 +36,6 @@ class TorchvisionDataModule(pl.LightningDataModule):
 
         If None, a default train/validation split will be set as the first 4/5th /
         last 1/5th of the original train dataset.
-    val_size:
-        float between 0.0 and 1.0 determing the size of the validation
-        percentage take from the full, original training set
     train_dataloader_opts:
         Dict of kawrgs for train DataLoader
     val_dataloader_opts:
@@ -46,10 +43,15 @@ class TorchvisionDataModule(pl.LightningDataModule):
     test_dataloader_opts:
         Dict of kawrgs for test DataLoader
     transform
-        Optional list of torchvision.transform.Transforms that are applied
-        to the raw dataset. Eg, for image datasets stored in PIL format:
+        Optional list of torchvision.transform.Transform class names are applied
+        to the raw inputs of dataset. Eg, for image datasets stored in PIL format:
 
-            transform = [torchvision.transform.ToTensor()]
+            transform = ["ToTensor"]
+    target_transform
+        Optional list of torchvision.transform.Transform class names are applied
+        to the raw labels of the dataset. Eg, for image datasets stored in PIL format:
+
+            transform = ["ToTensor"]
     """
 
     def __init__(
@@ -84,9 +86,7 @@ class TorchvisionDataModule(pl.LightningDataModule):
         else:
             self.splits = {
                 "train_idx": np.arange(0, int(full_train_len * 4.0 / 5.0)),
-                "val_idx": np.arange(
-                    int(full_train_len * 4.0 / 5.0), full_train_len
-                ),
+                "val_idx": np.arange(int(full_train_len * 4.0 / 5.0), full_train_len),
             }
 
         if train_dataloader_opts is None:
@@ -123,7 +123,22 @@ class TorchvisionDataModule(pl.LightningDataModule):
         self, train: bool = True, return_dataset: bool = True, download: bool = True
     ) -> Optional[torch.utils.data.Dataset]:
         """Helper method to download and optionally return
-        dataset objects.
+        dataset objects. All transforms specified in self.__init__() are applied.
+
+        Paramters
+        ---------
+        train:
+            if True, the predetermined train set of the dataset will be grabbed
+        return_dataset:
+            if True, the `Dataset` object is returned
+        download:
+            if True, the dataset will be downloaded and stored locally in `self.root_dir`
+
+        Returns
+        -------
+        dataset:
+            If `return_dataset` is `True`, the `Dataset` instance with the specified
+            options.
         """
 
         dataset = self.dataset_class(
@@ -174,17 +189,30 @@ class TorchvisionDataModule(pl.LightningDataModule):
             )
 
     def train_dataloader(self) -> torch.utils.data.DataLoader:
+        """Returns the train dataloader with the options specified in self.__init__()"""
         return DataLoader(self.dataset_train, **self.train_dataloader_opts)
 
     def val_dataloader(self) -> torch.utils.data.DataLoader:
+        """Returns the validation dataloader with the options specified in self.__init__()"""
         return DataLoader(self.dataset_val, **self.val_dataloader_opts)
 
     def test_dataloader(self) -> torch.utils.data.DataLoader:
+        """Returns the test dataloader with the options specified in self.__init__()"""
         return DataLoader(self.dataset_test, **self.test_dataloader_opts)
 
     def predict_dataloader(
-        self, x: torch.utils.data.Dataset, dataloader_opts: Optional[Dict] = None
+        self, dataset: torch.utils.data.Dataset, dataloader_opts: Optional[Dict] = None
     ) -> torch.utils.data.DataLoader:
+        """Returns a prediction dataloader
+
+        Parameters
+        ----------
+        dataset:
+            `Dataset` instance over which predictions will be made
+        dataloader_opts:
+            Dictionary of kwargs for the prediction dataloader
+        """
+
         if dataloader_opts is None:
             dataloader_opts = {}
-        return DataLoader(x, **dataloader_opts)
+        return DataLoader(dataset, **dataloader_opts)
