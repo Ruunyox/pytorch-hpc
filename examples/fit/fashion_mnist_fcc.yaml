@@ -1,7 +1,7 @@
 fit:
     seed_everything: 42
     trainer:
-        default_root_dir: &/scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist
+        default_root_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist
         max_epochs: 100
         max_time: null             
         profiler: null   
@@ -10,7 +10,7 @@ fit:
         logger:                                                         
           - class_path: lightning.pytorch.loggers.TensorBoardLogger      
             init_args:                                                    
-                save_dir: *default_root_dir                                   
+                save_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist
                 name: tensorboard                                             
                 version: ''                                                    
         benchmark: false                                                      
@@ -22,7 +22,7 @@ fit:
                 log_momentum: false                                                   
           - class_path: lightning.pytorch.callbacks.ModelCheckpoint 
             init_args:                                
-                dirpath: *default_root_dir                
+                dirpath: /scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist             
                 monitor: validation_loss                  
                 save_top_k: -1                             
                 every_n_epochs: 1                           
@@ -65,7 +65,7 @@ fit:
         init_args:
             dataset_name: "FashionMNIST"
             root_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist/data
-            split_fn: null
+            splits_fn: null
             train_dataloader_opts:
                 batch_size: 20
                 shuffle: True
