@@ -1,5 +1,5 @@
 fit:
-    seed_everything: null
+    seed_everything: 42
     trainer:
         default_root_dir: &/scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist
         max_epochs: 100
@@ -40,7 +40,7 @@ fit:
     optimizer:
         class_path: torch.optim.Adam
         init_args:
-            lr: 0.0001
+            lr: 0.001
     lr_scheduler: null
     model:
         class_path: pytorch_hpc.pl.pl_model.LightningModel
@@ -52,12 +52,12 @@ fit:
                     in_dim: 784
                     out_dim: 10
                     activation:
-                        class_path: torch.nn.Tanh
+                        class_path: torch.nn.ReLU
                     class_activation:
-                        class_path: torch.nn.Softmax
-                    hidden_layers: [128, 64, 32]
+                        class_path: torch.nn.LogSoftmax
+                    hidden_layers: [512, 256]
             loss_function:
-                class_path: torch.nn.CrossEntropyLoss
+                class_path: torch.nn.NLLLoss
                 init_args:
                     reduction: mean
     data:
@@ -65,17 +65,17 @@ fit:
         init_args:
             dataset_name: "FashionMNIST"
             root_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist/data
-            val_size: 0.2
+            split_fn: null
             train_dataloader_opts:
-                batch_size: 512
+                batch_size: 20
                 shuffle: True
-                num_workers: 192
+                num_workers: 2
             val_dataloader_opts:
-                batch_size: 512
+                batch_size: 20
                 shuffle: False
-                num_workers: 192
+                num_workers: 2
             test_dataloader_opts:
-                batch_size: 512
+                batch_size: 20
                 shuffle: False
             transform:
                 - ToTensor
