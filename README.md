@@ -12,4 +12,5 @@ testing, PytorchLightning
 -------------------------------
 
 Any `TorchVision` builtin dataset can be used with the configuration YAML.
-Different example YAMLs 
+Different example YAMLs and SLURM submission scripts for CPU and DDP-GPU training are included in
+`examples`. 
