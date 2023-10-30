@@ -1,7 +1,7 @@
 fit:
     seed_everything: 42 # When using DDP, with train
     trainer:
-        default_root_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist_multi_node_multi_gpu
+        default_root_dir: YOUR_OUT_DIR_multi_node_multi_gpu
         max_epochs: 500
         max_time: null             
         profiler: null   
@@ -12,7 +12,7 @@ fit:
         logger:                                                         
           - class_path: lightning.pytorch.loggers.TensorBoardLogger      
             init_args:                                                    
-                save_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist_multi_node_multi_gpu
+                save_dir: YOUR_OUT_DIR_multi_node_multi_gpu
                 name: tensorboard                                             
                 version: ''                                                    
         benchmark: false                                                      
@@ -24,7 +24,7 @@ fit:
                 log_momentum: false                                                   
           - class_path: lightning.pytorch.callbacks.ModelCheckpoint 
             init_args:                                
-                dirpath: /scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist_multi_node_multi_gpu
+                dirpath: YOUR_OUT_DIR_multi_node_multi_gpu
                 monitor: validation_loss                  
                 save_top_k: -1                             
                 every_n_epochs: 1                           
@@ -66,7 +66,7 @@ fit:
         class_path: pytorch_hpc.pl.pl_data.TorchvisionDataModule
         init_args:
             dataset_name: "FashionMNIST"
-            root_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/fashion_mnist/data
+            root_dir: YOUR_DATA_DIR
             splits_fn: null
             train_dataloader_opts:
                 batch_size: 20

@@ -21,8 +21,11 @@ setup(
     version=VERSION,
     author="Nick Charron",
     license="MIT",
+    author_email="charron.nicholas.e@gmail.com",
+    url="https://github.com/ruunyox/pytorch-hpc",
     packages=find_packages(),
     install_requires=install_requires,
     zip_safe=True,
+    entry_points={"console_scripts": ["pythpc = pytorch_hpc.scripts.__main__:main"]},
     cmdclass={"install": InstallScript},
 )
