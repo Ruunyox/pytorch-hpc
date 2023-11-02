@@ -111,7 +111,6 @@ class ConvolutionClassifier(nn.Module):
         self,
         tag: str,
         in_channels: int,
-        out_channels: int,
         in_dim: int,
         out_dim: int,
         activation: torch.nn.Module,
@@ -141,10 +140,15 @@ class ConvolutionClassifier(nn.Module):
 
         conv_layers = []
         conv_layers.append(
-            nn.Conv2d(in_channels, conv_channels[0], kernel_size=conv_kernels[0])
+            nn.Conv2d(
+                in_channels,
+                conv_channels[0],
+                kernel_size=conv_kernels[0],
+            )
         )
         conv_layers.append(nn.MaxPool2d(pooling_kernels[0]))
         conv_layers.append(deepcopy(activation))
+
         if len(conv_channels) > 1:
             for i in range(1, len(conv_channels)):
                 conv_layers.append(
@@ -156,11 +160,6 @@ class ConvolutionClassifier(nn.Module):
                 )
                 conv_layers.append(nn.MaxPool2d(pooling_kernels[i]))
                 conv_layers.append(deepcopy(activation))
-            conv_layers.append(
-                nn.Conv2d(conv_channels[-1], out_channels, kernel_size=conv_kernels[-1])
-            )
-            conv_layers.append(nn.MaxPool2d(pooling_kernels[-1]))
-            conv_layers.append(deepcopy(activation))
 
         self.convolutions = nn.Sequential(*conv_layers)
 
@@ -192,6 +191,7 @@ class ConvolutionClassifier(nn.Module):
 
         for layer in self.convolutions:
             x = layer(x)
+
         _, out_channels, pixel_x, pixel_y = x.size()
         x = x.view(-1, pixel_x * pixel_y * out_channel)
         for layer in self.net:
