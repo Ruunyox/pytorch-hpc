@@ -175,7 +175,7 @@ class ConvolutionClassifier(nn.Module):
 
         self.net = nn.Sequential(*layers)
 
-    def forward(x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through network.
 
         Parameters
