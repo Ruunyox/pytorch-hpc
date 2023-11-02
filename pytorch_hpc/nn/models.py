@@ -193,7 +193,7 @@ class ConvolutionClassifier(nn.Module):
             x = layer(x)
 
         _, out_channels, pixel_x, pixel_y = x.size()
-        x = x.view(-1, pixel_x * pixel_y * out_channel)
+        x = x.view(-1, pixel_x * pixel_y * out_channels)
         for layer in self.net:
             x = layer(x)
 
