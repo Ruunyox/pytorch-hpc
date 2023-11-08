@@ -10,4 +10,4 @@
 
 conda activate YOUR_PYTORCH_ENV
 
-srun python cli.py --config YOUR_CONFIG fit
+srun pythpc --config YOUR_CONFIG fit

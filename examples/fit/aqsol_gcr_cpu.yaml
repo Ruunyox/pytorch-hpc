@@ -1,18 +1,16 @@
 fit:
-    seed_everything: 42 # When using DDP, with train
+    seed_everything: 42
     trainer:
-        default_root_dir: YOUR_OUT_DIR_multi_node_multi_gpu
+        default_root_dir: YOUR_OUT_DIR
         max_epochs: 500
         max_time: null             
         profiler: null   
-        accelerator: 'gpu'
-        devices: 4
-        num_nodes: 2
+        accelerator: 'cpu'
         precision: 32                                                  
         logger:                                                         
           - class_path: lightning.pytorch.loggers.TensorBoardLogger      
             init_args:                                                    
-                save_dir: YOUR_OUT_DIR_multi_node_multi_gpu
+                save_dir: YOUR_OUT_DIR
                 name: tensorboard                                             
                 version: ''                                                    
         benchmark: false                                                      
@@ -24,7 +22,7 @@ fit:
                 log_momentum: false                                                   
           - class_path: lightning.pytorch.callbacks.ModelCheckpoint 
             init_args:                                
-                dirpath: YOUR_OUT_DIR_multi_node_multi_gpu
+                dirpath: YOUR_OUT_DIR
                 monitor: validation_loss                  
                 save_top_k: -1                             
                 every_n_epochs: 1                           
@@ -43,40 +41,60 @@ fit:
         class_path: torch.optim.Adam
         init_args:
             lr: 0.001
-    lr_scheduler: null
+    lr_scheduler:
+        class_path: lightning.pytorch.cli.ReduceLROnPlateau
+        init_args:
+          factor: 0.5
+          patience: 10
+          min_lr: 0.00001
+          monitor: validation_loss
     model:
-        class_path: pytorch_hpc.pl.pl_model.LightningModel
+        class_path: pytorch_hpc.pl.pl_model.LightningGraphModel
         init_args:
             model:
-                class_path: pytorch_hpc.nn.models.FullyConnectedClassifier
+                class_path: pytorch_hpc.nn.models.GraphRegressor
                 init_args:
-                    in_dim: 784
-                    out_dim: 10
-                    activation:
-                        class_path: torch.nn.ReLU
-                    class_activation:
-                        class_path: torch.nn.LogSoftmax
-                    hidden_layers: [512, 256]
+                    graph_model:
+                        class_path: torch_geometric.nn.models.GCN
+                        init_args:
+                            in_channels: 1
+                            hidden_channels: 145
+                            num_layers: 4
+                            out_channels: 145
+                            act:
+                                class_path: torch.nn.ReLU
+                            norm: batchnorm
+                    out_module:
+                        class_path: torch_geometric.nn.models.MLP
+                        init_args:
+                            channel_list: [145,145,1]
+                            act: 
+                                class_path: torch.nn.ReLU
+                            norm: batchnorm
+                    readout:
+                        class_path: pytorch_hpc.nn.models.GlobalMeanPool
             loss_function:
-                class_path: torch.nn.NLLLoss
+                class_path: torch.nn.L1Loss
                 init_args:
                     reduction: mean
+            data_expansion: 
+                class_path: pytorch_hpc.pl.input_expansions.StandardGraphExpander
+                init_args:
+                    scalar: true
     data:
-        class_path: pytorch_hpc.pl.pl_data.TorchvisionDataModule
+        class_path: pytorch_hpc.pl.pl_data.GeometricDataModule
         init_args:
-            dataset_name: "FashionMNIST"
+            dataset_name: "AQSOL"
             root_dir: YOUR_DATA_DIR
             splits_fn: null
             train_dataloader_opts:
-                batch_size: 20
+                batch_size: 128
                 shuffle: True
                 num_workers: 2
             val_dataloader_opts:
-                batch_size: 20
+                batch_size: 128
                 shuffle: False
                 num_workers: 2
             test_dataloader_opts:
-                batch_size: 20
+                batch_size: 128
                 shuffle: False
-            transform:
-                - ToTensor

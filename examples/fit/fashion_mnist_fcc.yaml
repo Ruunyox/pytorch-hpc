@@ -48,7 +48,6 @@ fit:
             model:
                 class_path: pytorch_hpc.nn.models.FullyConnectedClassifier
                 init_args:
-                    tag: fc_class_test
                     in_dim: 784
                     out_dim: 10
                     activation:
@@ -64,7 +63,7 @@ fit:
         class_path: pytorch_hpc.pl.pl_data.TorchvisionDataModule
         init_args:
             dataset_name: "FashionMNIST"
-            root_dir: YOUR_OUT_DATA_DIR
+            root_dir: YOUR_DATA_DIR
             splits_fn: null
             train_dataloader_opts:
                 batch_size: 20

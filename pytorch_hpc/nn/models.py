@@ -1,18 +1,52 @@
 import torch
-import torch.nn as nn
-from typing import Optional, List, Union, Tuple
+import torch_geometric
+from typing import Optional, List, Union, Tuple, Callable
 from copy import deepcopy
 
-__all__ = ["FullyConnectedClassifier", "ConvolutionClassifier"]
+
+class GlobalAddPool(torch.nn.Module):
+    """Class wrapper for `torch_geometric.nn.global_add_pool`.
+    See `help(torch_geometric.nn.global_add_pool)` for more
+    information.
+    """
+
+    def __init__(self):
+        super(GlobalAddPool, self).__init__()
+        self.readout = torch_geometric.nn.global_add_pool
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        batch: Optional[torch.Tensor] = None,
+        size: Optional[int] = None,
+    ) -> torch.Tensor:
+        return self.readout(x, batch, size)
 
 
-class FullyConnectedClassifier(nn.Module):
+class GlobalMeanPool(torch.nn.Module):
+    """Class wrapper for `torch_geometric.nn.global_mean_pool`.
+    See `help(torch_geometric.nn.global_add_pool)` for more
+    information.
+    """
+
+    def __init__(self):
+        super(GlobalMeanPool, self).__init__()
+        self.readout = torch_geometric.nn.global_mean_pool
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        batch: Optional[torch.Tensor] = None,
+        size: Optional[int] = None,
+    ) -> torch.Tensor:
+        return self.readout(x, batch, size)
+
+
+class FullyConnectedClassifier(torch.nn.Module):
     """Simple fully connected, feed-forward network for classification
 
     Parameters
     ----------
-    tag:
-        `str` name for the model
     in_dim:
         `int` specifying the (non-batch) model input dimension
     out_dim:
@@ -27,7 +61,6 @@ class FullyConnectedClassifier(nn.Module):
 
     def __init__(
         self,
-        tag: str,
         in_dim: int,
         out_dim: int,
         activation: torch.nn.Module,
@@ -36,7 +69,6 @@ class FullyConnectedClassifier(nn.Module):
     ):
         super(FullyConnectedClassifier, self).__init__()
 
-        self.tag = tag
         if hidden_layers is None:
             hidden_layers = [128, 64, 32]
 
@@ -76,13 +108,11 @@ class FullyConnectedClassifier(nn.Module):
         return x
 
 
-class ConvolutionClassifier(nn.Module):
+class ConvolutionClassifier(torch.nn.Module):
     """Simple Convolutional Neural Network with MaxPooling for classification
 
     Parameters
     ----------
-    tag:
-        `str` name for the model
     in_channels:
         `int` specifying the (non-batch) input image channels
     out_channels:
@@ -109,7 +139,6 @@ class ConvolutionClassifier(nn.Module):
 
     def __init__(
         self,
-        tag: str,
         in_channels: int,
         in_dim: int,
         out_dim: int,
@@ -125,8 +154,6 @@ class ConvolutionClassifier(nn.Module):
         assert all([opt is None for opt in [conv_channels, conv_kernels]]) or all(
             [opt is not None for opt in [conv_channels, conv_kernels]]
         )
-
-        self.tag = tag
 
         if conv_channels is None:
             conv_channels = [64, 64]
@@ -198,3 +225,79 @@ class ConvolutionClassifier(nn.Module):
             x = layer(x)
 
         return x
+
+
+class GraphRegressor(torch.nn.Module):
+    """General graph Regressor. Meant to be used readily with torch_geometric.nn.models
+
+    Parameters
+    ----------
+    graph_model:
+        `torch.nn.Module` model performing general node feature updates. E.g.,
+        `torch_geometric.nn.models.GCN`
+    out_module:
+        `torch.nn.Module` for transforming output node features from the `graph_model`. E.g.,
+        `torch_geometric.nn.models.MLP`
+    readout:
+        `torch.nn.Module` or `Callable` that aggregates per-graph node/edge output features
+        after the `out_module`. E.g., `torch_geometric.nn.global_add_pool()`
+    """
+
+    def __init__(
+        self,
+        graph_model: torch.nn.Module,
+        out_module: torch.nn.Module,
+        readout: torch.nn.Module = GlobalMeanPool(),
+    ):
+        super(GraphRegressor, self).__init__()
+        self.graph_model = graph_model
+        self.out_module = out_module
+        self.readout = readout
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_weight: Optional[torch.Tensor] = None,
+        edge_attr: Optional[torch.Tensor] = None,
+        batch: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Forward network predition on expanded input graph data
+
+        Parameters
+        ----------
+        x:
+            input `torch.Tensor` of shape (num_batch_nodes, num_node_features),
+            determining the features for each node in the batch
+        edge_index:
+            input `torch.Tensor` of shape (2, num_batch_edges),
+            determining which nodes are connected pairwise
+        edge_index:
+            input `torch.Tensor` of shape (2, num_batch_edges)
+        edge_weight:
+            input `torch.Tensor` of shape (num_batch_edges,),
+            determining the weight of each edge in the batch
+        edge_attr:
+            input `torch.Tensor` of shape (num_batch_edges, num_edge_features),
+            determining the features for each edge in the batch
+        batch:
+            input `torch.tensor` of shape (num_batch_nodes),
+            determining the graph index of each node in the batch
+
+        Returns
+        -------
+        x:
+           `torch.Tensor` of shape (batch_size, n_classes) of
+           updated node features
+        """
+
+        out = self.graph_model(
+            x=x,
+            edge_index=edge_index,
+            edge_weight=edge_weight,
+            edge_attr=edge_attr,
+            batch=batch,
+        )
+        out = self.out_module(out)
+        out = self.readout(out, batch)
+        return out
