@@ -4,7 +4,7 @@ import numpy as np
 import lightning.pytorch as pl
 from lightning.pytorch.cli import OptimizerCallable, LRSchedulerCallable
 import torchvision.datasets
-from typing import Tuple, Optional, Dict, List, Any, Callable
+from typing import Tuple, Optional, Dict, List, Any, Callable, Union
 import torch
 from torchvision.datasets import *
 from torchvision.transforms import Compose
@@ -21,9 +21,25 @@ except:
     )
 
 
-__all__ = ["TorchvisionDataModule"]
-
 transform_map = {"ToTensor": torchvision.transforms.ToTensor}
+cast_map = {"float32": torch.float32}
+
+
+class GraphAttrCast(object):
+    """Converts targeted `torch_geometric.data.Data` feature types."""
+
+    def __init__(self, casts: Dict[str, Union[str, torch.dtype]]):
+        for k, v in casts.items():
+            if isinstance(v, str):
+                casts[k] = cast_map[v]
+        self.casts = casts
+
+    def __call__(
+        self, input_data: torch_geometric.data.Data
+    ) -> torch_geometric.data.Data:
+        for feat, cast in self.casts.items():
+            input_data[feat] = input_data[feat].to(cast)
+        return input_data
 
 
 class TorchvisionDataModule(pl.LightningDataModule):

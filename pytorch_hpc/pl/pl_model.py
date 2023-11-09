@@ -10,35 +10,6 @@ SchedulerType = Union[
 ]
 
 
-class StandardGraphExpander(torch.nn.Module):
-    """Wrapper for standard graph input expansion
-
-    Parameters
-    ----------
-    scalar:
-        If `True`, single channel `Data.x` inputs will be reshaped as
-        `(num_nodes, -1)`
-    """
-
-    def __init__(
-        self, scalar: bool = False, input_cast_type: str = "torch.FloatTensor"
-    ):
-        super(StandardGraphExpander, self).__init__()
-        self.scalar = scalar
-        self.input_cast_type = input_cast_type
-
-    def forward(self, data: torch_geometric.data.Data) -> Dict[str, torch.Tensor]:
-        return {
-            "x": data.x.view(data.x.shape[0], -1).type(self.input_cast_type)
-            if self.scalar
-            else data.x.type(self.input_cast_type),
-            "edge_index": data.edge_index,
-            "edge_weight": data.edge_weight,
-            "edge_attr": data.edge_attr,
-            "batch": data.batch,
-        }
-
-
 class LightningModel(pl.LightningModule):
     """Model for PyTorch Lightning training
 
