@@ -73,13 +73,13 @@ class FullyConnectedClassifier(torch.nn.Module):
             hidden_layers = [128, 64, 32]
 
         layers = []
-        layers.append(nn.Linear(in_dim, hidden_layers[0]))
+        layers.append(torch.nn.Linear(in_dim, hidden_layers[0]))
         layers.append(deepcopy(activation))
         if len(hidden_layers) > 1:
             for i in range(1, len(hidden_layers)):
-                layers.append(nn.Linear(hidden_layers[i - 1], hidden_layers[i]))
+                layers.append(torch.nn.Linear(hidden_layers[i - 1], hidden_layers[i]))
                 layers.append(deepcopy(activation))
-        layers.append(nn.Linear(hidden_layers[-1], out_dim))
+        layers.append(torch.nn.Linear(hidden_layers[-1], out_dim))
         layers.append(deepcopy(class_activation))
 
         self.net = nn.Sequential(*layers)
@@ -167,40 +167,40 @@ class ConvolutionClassifier(torch.nn.Module):
 
         conv_layers = []
         conv_layers.append(
-            nn.Conv2d(
+            torch.nn.Conv2d(
                 in_channels,
                 conv_channels[0],
                 kernel_size=conv_kernels[0],
             )
         )
-        conv_layers.append(nn.MaxPool2d(pooling_kernels[0]))
+        conv_layers.append(torch.nn.MaxPool2d(pooling_kernels[0]))
         conv_layers.append(deepcopy(activation))
 
         if len(conv_channels) > 1:
             for i in range(1, len(conv_channels)):
                 conv_layers.append(
-                    nn.Conv2d(
+                    torch.nn.Conv2d(
                         conv_channels[i - 1],
                         conv_channels[i],
                         kernel_size=conv_kernels[i],
                     )
                 )
-                conv_layers.append(nn.MaxPool2d(pooling_kernels[i]))
+                conv_layers.append(torch.nn.MaxPool2d(pooling_kernels[i]))
                 conv_layers.append(deepcopy(activation))
 
-        self.convolutions = nn.Sequential(*conv_layers)
+        self.convolutions = torch.nn.Sequential(*conv_layers)
 
         layers = []
-        layers.append(nn.Linear(in_dim, hidden_layers[0]))
+        layers.append(torch.nn.Linear(in_dim, hidden_layers[0]))
         layers.append(deepcopy(activation))
         if len(hidden_layers) > 1:
             for i in range(1, len(hidden_layers)):
                 layers.append(nn.Linear(hidden_layers[i - 1], hidden_layers[i]))
                 layers.append(deepcopy(activation))
-        layers.append(nn.Linear(hidden_layers[-1], out_dim))
+        layers.append(torch.nn.Linear(hidden_layers[-1], out_dim))
         layers.append(deepcopy(class_activation))
 
-        self.net = nn.Sequential(*layers)
+        self.net = torch.nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through network.
