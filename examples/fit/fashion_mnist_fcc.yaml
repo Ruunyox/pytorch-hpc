@@ -45,6 +45,7 @@ fit:
     model:
         class_path: pytorch_hpc.pl.pl_model.LightningModel
         init_args:
+            task: multiclass
             model:
                 class_path: pytorch_hpc.nn.models.FullyConnectedClassifier
                 init_args:

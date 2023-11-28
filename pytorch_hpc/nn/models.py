@@ -53,8 +53,6 @@ class FullyConnectedClassifier(torch.nn.Module):
         `int` specifying the (non-batch) model output dimension
     activation:
         `torch.nn.Module` activation function after each linear transform
-    class_activation:
-        `torch.nn.Module` activation after the final linear transform for class prediction
     hidden_layers:
         `List[int]` of hidden linear transform widths
     """
@@ -64,15 +62,16 @@ class FullyConnectedClassifier(torch.nn.Module):
         in_dim: int,
         out_dim: int,
         activation: torch.nn.Module,
-        class_activation: torch.nn.Module,
         hidden_layers: Optional[List[int]] = None,
     ):
         super(FullyConnectedClassifier, self).__init__()
 
+        self.out_dim = out_dim
         if hidden_layers is None:
             hidden_layers = [128, 64, 32]
 
         layers = []
+        layers.append(torch.nn.Flatten())
         layers.append(torch.nn.Linear(in_dim, hidden_layers[0]))
         layers.append(deepcopy(activation))
         if len(hidden_layers) > 1:
@@ -80,9 +79,8 @@ class FullyConnectedClassifier(torch.nn.Module):
                 layers.append(torch.nn.Linear(hidden_layers[i - 1], hidden_layers[i]))
                 layers.append(deepcopy(activation))
         layers.append(torch.nn.Linear(hidden_layers[-1], out_dim))
-        layers.append(deepcopy(class_activation))
 
-        self.net = nn.Sequential(*layers)
+        self.net = torch.nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through network. Input images
@@ -99,9 +97,6 @@ class FullyConnectedClassifier(torch.nn.Module):
         x:
            `torch.Tensor` of shape (batch_size, n_classes)
         """
-        n_channels = x.size()[1]
-        pixel_size = x.size()[-1]
-        x = x.view(-1, pixel_size * pixel_size * n_channels)
         for layer in self.net:
             x = layer(x)
 
@@ -123,8 +118,6 @@ class ConvolutionClassifier(torch.nn.Module):
         `int` specifying the (non-batch) fully-connected network output dimension
     activation:
         `torch.nn.Module` activation function after each linear transform
-    class_activation:
-        `torch.nn.Module` activation after the final linear transform for class prediction
     hidden_layers:
         `List[int]` of hidden linear transform widths in the fully connected network
     conv_channels:
@@ -143,7 +136,6 @@ class ConvolutionClassifier(torch.nn.Module):
         in_dim: int,
         out_dim: int,
         activation: torch.nn.Module,
-        class_activation: torch.nn.Module,
         hidden_layers: Optional[List[int]] = None,
         conv_channels: Optional[List[int]] = None,
         conv_kernels: Optional[Union[List[int], List[Tuple[int]]]] = None,
@@ -151,6 +143,7 @@ class ConvolutionClassifier(torch.nn.Module):
     ):
         super(ConvolutionClassifier, self).__init__()
 
+        self.out_dim = out_dim
         assert all([opt is None for opt in [conv_channels, conv_kernels]]) or all(
             [opt is not None for opt in [conv_channels, conv_kernels]]
         )
@@ -191,14 +184,14 @@ class ConvolutionClassifier(torch.nn.Module):
         self.convolutions = torch.nn.Sequential(*conv_layers)
 
         layers = []
+        layers.append(torch.nn.Flatten())
         layers.append(torch.nn.Linear(in_dim, hidden_layers[0]))
         layers.append(deepcopy(activation))
         if len(hidden_layers) > 1:
             for i in range(1, len(hidden_layers)):
-                layers.append(nn.Linear(hidden_layers[i - 1], hidden_layers[i]))
-                layers.append(deepcopy(activation))
+                layers.append(torch.nn.Linear(hidden_layers[i - 1], hidden_layers[i]))
+                layers.append(activation)
         layers.append(torch.nn.Linear(hidden_layers[-1], out_dim))
-        layers.append(deepcopy(class_activation))
 
         self.net = torch.nn.Sequential(*layers)
 
@@ -219,8 +212,6 @@ class ConvolutionClassifier(torch.nn.Module):
         for layer in self.convolutions:
             x = layer(x)
 
-        _, out_channels, pixel_x, pixel_y = x.size()
-        x = x.view(-1, pixel_x * pixel_y * out_channels)
         for layer in self.net:
             x = layer(x)
 
