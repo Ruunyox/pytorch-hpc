@@ -1,18 +1,19 @@
 fit:
-    seed_everything: 0
+    seed_everything: 42
     trainer:
-        default_root_dir: fashion_mnist
-        max_epochs: 100
+        default_root_dir: fashion_mnist_conv_multi_gpu
+        max_epochs: 20
         max_time: null             
-        profiler: 'advanced' 
-        accelerator: 'cpu'
-        strategy: auto
+        profiler: 'pytorch'   
+        accelerator: 'gpu'
+        devices: 4
+        num_nodes: 1
         precision: 32                                                  
         logger:                                                         
           - class_path: lightning.pytorch.loggers.TensorBoardLogger      
             init_args:                                                    
-                save_dir: fashion_mnist
-                name: tensorboard                                            
+                save_dir: fashion_mnist_conv_multi_gpu
+                name: tensorboard                                             
                 version: ''                                                    
         benchmark: false                                                      
         enable_checkpointing: true                                             
@@ -23,7 +24,7 @@ fit:
                 log_momentum: false                                                   
           - class_path: lightning.pytorch.callbacks.ModelCheckpoint 
             init_args:                                
-                dirpath: fashion_mnist
+                dirpath: fashion_mnist_conv_multi_gpu
                 monitor: validation_loss                  
                 save_top_k: -1                             
                 every_n_epochs: 1                           
@@ -48,13 +49,17 @@ fit:
         init_args:
             task: 'multiclass'
             model:
-                class_path: pytorch_hpc.nn.models.FullyConnectedClassifier
+                class_path: pytorch_hpc.nn.models.ConvolutionClassifier
                 init_args:
-                    in_dim: 784
+                    in_dim: 2304
                     out_dim: 10
+                    in_channels: 1
+                    conv_channels: [64,64]
+                    conv_kernels: [2,2]
+                    pooling_kernels: [2,2]
                     activation:
                         class_path: torch.nn.ReLU
-                    hidden_layers: [512, 256]
+                    hidden_layers: [1024,512,256]
             loss_function:
                 class_path: torch.nn.CrossEntropyLoss
                 init_args:
@@ -66,19 +71,15 @@ fit:
             root_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/local_datasets
             splits_fn: null
             train_dataloader_opts:
-                batch_size: 512
+                batch_size: 128
                 shuffle: True
                 num_workers: 2
-                pin_memory: true
             val_dataloader_opts:
-                batch_size: 512
+                batch_size: 128
                 shuffle: False
                 num_workers: 2
-                pin_memory: true
             test_dataloader_opts:
-                batch_size: 512
+                batch_size: 128
                 shuffle: False
-                num_workers: 2
-                pin_memory: true
             transform:
                 - ToTensor

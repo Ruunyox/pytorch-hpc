@@ -1,11 +1,15 @@
 #! /bin/bash
-#SBATCH -J cli_test_cpu
-#SBATCH -o cli_test_cpu.out
-#SBATCH --time=00:30:00
-#SBATCH --nodes=1
-#SBATCH --mem-per-cpu=1G
-#SBATCH --cpus-per-task=4
+#SBATCH --job-name pyt_cli_test_cpu
+#SBATCH -o ./fashion_mnist/cli_test_cpu.out
+#SBATCH -t 00:30:00
+#SBATCH -p standard96:test
+#SBATCH -N 1
+#SBATCH --mem-per-cpu 1G
+#SBATCH --cpus-per-task 4
 
-conda activate YOUR_PYTORCH_ENV
+module load anaconda3/2023.09
 
-pythpc --config YOUR_CONFIG fit 
+conda activate base
+tensorboard_dir=fashion_mnist/tensorboard
+
+srun pythpc --config fashion_mnist_fcc.yaml fit --trainer.profiler=lightning.pytorch.profilers.AdvancedProfiler --trainer.profiler.dirpath="${tensorboard_dir}" --trainer.profiler.filename="prof"

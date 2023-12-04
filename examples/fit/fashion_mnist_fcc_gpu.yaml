@@ -1,18 +1,20 @@
 fit:
-    seed_everything: 0
+    seed_everything: 42 # When using DDP, with train
     trainer:
-        default_root_dir: fashion_mnist
+        default_root_dir: fashion_mnist_gpu
         max_epochs: 100
         max_time: null             
         profiler: 'advanced' 
-        accelerator: 'cpu'
+        accelerator: 'gpu'
         strategy: auto
+        devices: 1
+        num_nodes: 1
         precision: 32                                                  
         logger:                                                         
           - class_path: lightning.pytorch.loggers.TensorBoardLogger      
             init_args:                                                    
-                save_dir: fashion_mnist
-                name: tensorboard                                            
+                save_dir: fashion_mnist_gpu
+                name: tensorboard                                             
                 version: ''                                                    
         benchmark: false                                                      
         enable_checkpointing: true                                             
@@ -23,7 +25,7 @@ fit:
                 log_momentum: false                                                   
           - class_path: lightning.pytorch.callbacks.ModelCheckpoint 
             init_args:                                
-                dirpath: fashion_mnist
+                dirpath: fashion_mnist_gpu
                 monitor: validation_loss                  
                 save_top_k: -1                             
                 every_n_epochs: 1                           
@@ -63,22 +65,18 @@ fit:
         class_path: pytorch_hpc.pl.pl_data.TorchvisionDataModule
         init_args:
             dataset_name: "FashionMNIST"
-            root_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/local_datasets
+            root_dir: /scratch/usr/bzfbnick/pytorch_hpc_output/local_datasets 
             splits_fn: null
             train_dataloader_opts:
                 batch_size: 512
                 shuffle: True
                 num_workers: 2
-                pin_memory: true
             val_dataloader_opts:
                 batch_size: 512
                 shuffle: False
                 num_workers: 2
-                pin_memory: true
             test_dataloader_opts:
                 batch_size: 512
                 shuffle: False
-                num_workers: 2
-                pin_memory: true
             transform:
                 - ToTensor
